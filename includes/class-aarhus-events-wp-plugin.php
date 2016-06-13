@@ -113,7 +113,12 @@ class Aarhus_Events_Wp_Plugin {
 		 */
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-aarhus-events-wp-plugin-admin.php';
 
-		/**
+    /**
+     * The class responsible for syncing data
+     */
+    require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-aarhus-events-wp-plugin-sync-engine.php';
+
+    /**
 		 * The class responsible for defining all actions that occur in the public-facing
 		 * side of the site.
 		 */
@@ -154,7 +159,16 @@ class Aarhus_Events_Wp_Plugin {
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_styles' );
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
 
-	}
+    // Save/Update our plugin options
+    $this->loader->add_action('admin_init', $plugin_admin, 'options_update');
+
+    // Add menu item
+    $this->loader->add_action( 'admin_menu', $plugin_admin, 'add_plugin_admin_menu' );
+
+    // Add Settings link to the plugin
+    $plugin_basename = plugin_basename( plugin_dir_path( __DIR__ ) . $this->plugin_name . '.php' );
+    $this->loader->add_filter( 'plugin_action_links_' . $plugin_basename, $plugin_admin, 'add_action_links' );
+  }
 
 	/**
 	 * Register all of the hooks related to the public-facing functionality
@@ -181,7 +195,22 @@ class Aarhus_Events_Wp_Plugin {
 		$this->loader->run();
 	}
 
-	/**
+  /**
+   * Sync content
+   *
+   * @since    1.0.0
+   */
+  public function sync() {
+
+    $plugin_sync = new Aarhus_Events_Wp_Plugin_Sync_Engine( $this->get_plugin_name(), $this->get_version() );
+
+    $plugin_sync->sync_locations();
+    $plugin_sync->sync_events();
+
+    $this->set_last_sync_time(date("Y-m-d H:i:s"));
+  }
+
+  /**
 	 * The name of the plugin used to uniquely identify it within the context of
 	 * WordPress and to define internationalization functionality.
 	 *
@@ -211,5 +240,22 @@ class Aarhus_Events_Wp_Plugin {
 	public function get_version() {
 		return $this->version;
 	}
+  
+  private function set_last_sync_time($time) {
+    $option_name = 'aarhus_events_last_sync' ;
+
+    if ( get_option( $option_name ) !== false ) {
+
+      // The option already exists, so we just update it.
+      update_option( $option_name, $time );
+
+    } else {
+
+      // The option hasn't been added yet. We'll add it with $autoload set to 'no'.
+      $deprecated = null;
+      $autoload = 'no';
+      add_option( $option_name, $time, $deprecated, $autoload );
+    }
+  }
 
 }
