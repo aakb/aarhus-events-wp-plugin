@@ -75,6 +75,7 @@ class Aarhus_Events_Wp_Plugin {
 		$this->set_locale();
 		$this->define_admin_hooks();
 		$this->define_public_hooks();
+    $this->define_cron_hooks();
 
 	}
 
@@ -145,6 +146,20 @@ class Aarhus_Events_Wp_Plugin {
 
 	}
 
+  /**
+   * Register all of the hooks related to the admin area functionality
+   * of the plugin.
+   *
+   * @since    1.0.0
+   * @access   private
+   */
+  private function define_cron_hooks() {
+
+    $plugin_admin = new Aarhus_Events_Wp_Plugin_Admin( $this->get_plugin_name(), $this->get_version() );
+
+    $this->loader->add_action( 'aarhus_events_cron_event', $plugin_admin, 'aarhus_events_cron_sync' );
+  }
+
 	/**
 	 * Register all of the hooks related to the admin area functionality
 	 * of the plugin.
@@ -204,10 +219,7 @@ class Aarhus_Events_Wp_Plugin {
 
     $plugin_sync = new Aarhus_Events_Wp_Plugin_Sync_Engine( $this->get_plugin_name(), $this->get_version() );
 
-    $plugin_sync->sync_locations();
-    $plugin_sync->sync_events();
-
-    $this->set_last_sync_time(date("Y-m-d H:i:s"));
+    $plugin_sync->sync_all();
   }
 
   /**
@@ -241,21 +253,4 @@ class Aarhus_Events_Wp_Plugin {
 		return $this->version;
 	}
   
-  private function set_last_sync_time($time) {
-    $option_name = 'aarhus_events_last_sync' ;
-
-    if ( get_option( $option_name ) !== false ) {
-
-      // The option already exists, so we just update it.
-      update_option( $option_name, $time );
-
-    } else {
-
-      // The option hasn't been added yet. We'll add it with $autoload set to 'no'.
-      $deprecated = null;
-      $autoload = 'no';
-      add_option( $option_name, $time, $deprecated, $autoload );
-    }
-  }
-
 }

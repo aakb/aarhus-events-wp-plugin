@@ -58,14 +58,6 @@ register_deactivation_hook( __FILE__, 'deactivate_aarhus_events_wp_plugin' );
 require plugin_dir_path( __FILE__ ) . 'includes/class-aarhus-events-wp-plugin.php';
 
 /**
- * THe code that runds on cron event aarhus_events_cron_sync
- */
-function aarhus_events_cron_sync() {
-  $plugin = new Aarhus_Events_Wp_Plugin();
-  $plugin->sync();
-}
-
-/**
  * Begins execution of the plugin.
  *
  * Since everything within the plugin is registered via hooks,

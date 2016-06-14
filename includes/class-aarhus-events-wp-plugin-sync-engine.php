@@ -1,5 +1,10 @@
 <?php
 
+// Ensure edia_sideload_image() is availiable for cron tasks
+require_once "wp-admin/includes/image.php";
+require_once "wp-admin/includes/file.php";
+require_once "wp-admin/includes/media.php";
+
 /**
  * Fired during plugin deactivation
  *
@@ -59,6 +64,13 @@ class Aarhus_Events_Wp_Plugin_Sync_Engine {
     $this->plugin_name = $plugin_name;
     $this->version = $version;
 
+  }
+
+  public function sync_all() {
+    $this->sync_locations();
+    $this->sync_events();
+
+    $this->set_last_sync_time(date("Y-m-d H:i:s"));
   }
 
   /**
@@ -433,6 +445,23 @@ class Aarhus_Events_Wp_Plugin_Sync_Engine {
     $user_id = isset($options['sync_user_account_id']) ? $options['sync_user_account_id'] : 1;
 
     return $user_id;
+  }
+
+  private function set_last_sync_time($time) {
+    $option_name = 'aarhus_events_last_sync' ;
+
+    if ( get_option( $option_name ) !== false ) {
+
+      // The option already exists, so we just update it.
+      update_option( $option_name, $time );
+
+    } else {
+
+      // The option hasn't been added yet. We'll add it with $autoload set to 'no'.
+      $deprecated = null;
+      $autoload = 'no';
+      add_option( $option_name, $time, $deprecated, $autoload );
+    }
   }
 
 }

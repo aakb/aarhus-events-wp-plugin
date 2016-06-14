@@ -182,8 +182,7 @@ class Aarhus_Events_Wp_Plugin_Admin {
   public function validate($input) {
     if(isset($_POST['btnSync'])) {
       $sync_engine = new Aarhus_Events_Wp_Plugin_Sync_Engine( $this->get_plugin_name(), $this->get_version() );
-      $sync_engine->sync_locations();
-      $sync_engine->sync_events();
+      $sync_engine->sync_all();
     }
 
     delete_transient( $this->plugin_name.'_selected_locations' );
@@ -204,10 +203,10 @@ class Aarhus_Events_Wp_Plugin_Admin {
     $valid['sync_user_account_id'] = sanitize_text_field($input['sync_user_account_id']);
 
     // find out when the last event was scheduled
-    $timestamp = wp_next_scheduled ('aarhus_events_cron_sync');
+    $timestamp = wp_next_scheduled ('aarhus_events_cron_event');
     // unschedule previous event if any
-    wp_unschedule_event ($timestamp, 'aarhus_events_cron_sync');
-    wp_schedule_event( time(), $valid['sync_schedule'], 'aarhus_events_cron_sync' );
+    wp_unschedule_event ($timestamp, 'aarhus_events_cron_event');
+    wp_schedule_event( time(), $valid['sync_schedule'], 'aarhus_events_cron_event' );
 
     return $valid;
   }
@@ -231,6 +230,34 @@ class Aarhus_Events_Wp_Plugin_Admin {
    */
   public function get_version() {
     return $this->version;
+  }
+
+  /**
+   * THe function that runs on cron event aarhus_events_cron_sync
+   */
+  public function aarhus_events_cron_sync() {
+    $plugin = new Aarhus_Events_Wp_Plugin();
+    $plugin->sync();
+
+    $this->set_last_cron_time();
+  }
+
+  private function set_last_cron_time() {
+    $time = date("Y-m-d H:i:s");
+    $option_name = 'aarhus_events_last_cron' ;
+
+    if ( get_option( $option_name ) !== false ) {
+
+      // The option already exists, so we just update it.
+      update_option( $option_name, $time );
+
+    } else {
+
+      // The option hasn't been added yet. We'll add it with $autoload set to 'no'.
+      $deprecated = null;
+      $autoload = 'no';
+      add_option( $option_name, $time, $deprecated, $autoload );
+    }
   }
 
 }
