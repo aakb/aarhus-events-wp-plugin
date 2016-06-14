@@ -1,9 +1,9 @@
 <?php
 
 // Ensure edia_sideload_image() is availiable for cron tasks
-require_once "wp-admin/includes/image.php";
-require_once "wp-admin/includes/file.php";
-require_once "wp-admin/includes/media.php";
+require_once ABSPATH."wp-admin/includes/image.php";
+require_once ABSPATH."wp-admin/includes/file.php";
+require_once ABSPATH."wp-admin/includes/media.php";
 
 /**
  * Fired during plugin deactivation
