@@ -435,6 +435,9 @@ class Aarhus_Events_Wp_Plugin_Sync_Engine {
     $locations = $this->get_selected_location_ids();
     $events = $this->get_events_for_locations($locations);
 
+    // We need more time!
+    set_time_limit(0);
+
     foreach ($events as $event) {
       $this->update_event($event);
     }
