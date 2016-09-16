@@ -365,16 +365,17 @@ class Aarhus_Events_Wp_Plugin_Sync_Engine {
     $posts = array();
     $existing_posts_synced = array();
 
-    $args = array(
-      'meta_key'   => 'AarhusEventID',
-      'meta_value' => $event->event_id
-    );
     $query = new WP_Query(
       array(
         'posts_per_page' => -1,
         'post_type' => 'tribe_events',
         'post_status' => 'publish',
-        'meta_query' => $args
+        'meta_query' => array(
+          array(
+            'key'   => 'AarhusEventID',
+            'value' => $event->event_id,
+          ),
+        ),
       )
     );
 
