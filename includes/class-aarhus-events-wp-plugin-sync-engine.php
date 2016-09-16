@@ -367,6 +367,12 @@ class Aarhus_Events_Wp_Plugin_Sync_Engine {
 
     $query = new WP_Query(
       array(
+        // the-events-calendar hijacks to query to only display future events!
+        // @see https://theeventscalendar.com/knowledgebase/using-tribe_get_events/
+        'eventDisplay' => 'custom',
+        'start_date'   => (new \DateTime('1900-01-01'))->format(\DateTime::ISO8601),
+        'end_date'   => (new \DateTime('2100-01-01'))->format(\DateTime::ISO8601),
+
         'posts_per_page' => -1,
         'post_type' => 'tribe_events',
         'post_status' => 'publish',
