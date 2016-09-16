@@ -341,11 +341,58 @@ class Aarhus_Events_Wp_Plugin_Sync_Engine {
     }
   }
 
+  public function sync_events() {
+    $count = 0;
+
+    $locations = $this->get_selected_location_ids();
+    $events = $this->get_events_for_locations($locations);
+
+    // We need more time!
+    set_time_limit(0);
+
+    foreach ($events as $event) {
+      $count += $this->update_event($event);
+    }
+
+  }
+
   public function update_event($event) {
+    $count = 0;
+
     $user_id = $this->get_sync_user_id();
     $venue_id = $this->get_location_id_from_aarhus_venue_id($event->place_id);
+    $thumbnail_id = null;
+    $posts = array();
+    $existing_posts_synced = array();
 
-    foreach ($event->event_dates as $event_dates) {
+    $args = array(
+      'meta_key'   => 'AarhusEventID',
+      'meta_value' => $event->event_id
+    );
+    $query = new WP_Query(
+      array(
+        'posts_per_page' => -1,
+        'post_type' => 'tribe_events',
+        'post_status' => 'publish',
+        'meta_query' => $args
+      )
+    );
+
+    // The Loop
+    if ( $query->have_posts() ) {
+      while ( $query->have_posts() ) {
+        $query->the_post();
+        $post = get_post();
+        $post_meta = get_post_meta($post->ID);
+
+        $posts[$post->ID] = $post;
+        $posts_meta[$post->ID] = $post_meta;
+      }
+    }
+
+    $d=1;
+
+    foreach ($event->event_dates as $event_date) {
       $tribe_event = new stdClass();
 
       //Mapping
@@ -354,93 +401,162 @@ class Aarhus_Events_Wp_Plugin_Sync_Engine {
 
       //Date mapping
       $start = new DateTime();
-      $start->setTimezone(new DateTimeZone("Europe/Copenhagen"));
-      $start->setTimestamp($event_dates->start_datetime);
+      $start->setTimezone(new DateTimeZone('Europe/Copenhagen'));
+      $start->setTimestamp($event_date->start_datetime);
       $end = new DateTime();
-      $end->setTimezone(new DateTimeZone("Europe/Copenhagen"));
-      $end->setTimestamp($event_dates->end_datetime);
+      $end->setTimezone(new DateTimeZone('Europe/Copenhagen'));
+      $end->setTimestamp($event_date->end_datetime);
 
-      $tribe_event->_EventTimezone = "Europe/Copenhagen";
+      $tribe_event->_EventTimezone = 'Europe/Copenhagen';
       $tribe_event->_EventTimezoneAbbr = "CET";
       $tribe_event->_EventStartDate = $start->format("Y-m-d H:i:s");
       $tribe_event->_EventEndDate = $end->format("Y-m-d H:i:s");
-      $tribe_event->_EventDuration = $event_dates->end_datetime - $event_dates->start_datetime;
+      $tribe_event->_EventDuration = $event_date->end_datetime - $event_date->start_datetime;
 
       //Venue mapping
       if($venue_id) {
         $tribe_event->_EventVenueID = $venue_id;
       }
 
-      $postaar = array();
+      $postarr = array();
       $postarr['post_title'] = $event->name;
       $postarr['post_content'] = empty($event->description) ? '' : html_entity_decode($event->description);
       $postarr['post_status'] = 'publish';
       $postarr['post_type'] = 'tribe_events';
       $postarr['post_author'] = $user_id;
 
-      // Do we have the event allready?
-      $sql = 'SELECT p.ID FROM `wp_posts` p LEFT JOIN `wp_postmeta` pm ON p.ID = pm.post_id WHERE pm.meta_key = "AarhusEventID" AND pm.meta_value = "' . $event->event_id . '" AND p.post_status = "publish" ';
-      global $wpdb;
-      $posts = $wpdb->get_results($sql);
-
       if (empty($posts)) {
         $post_id = wp_insert_post($postarr);
-      }
-      else {
-        $post_id = $posts[0]->ID;
-        $args['ID'] = $post_id;
-      }
+      } else {
+        $post_id = $this->map_event_to_post_id($event_date, $posts_meta);
 
-      // Load image
-      if (!empty($event->promopic)) {
-        // magic sideload image returns an HTML image, not an ID
-        $media = media_sideload_image($event->promopic, $post_id);
-
-        // therefore we must find it so we can set it as featured ID
-        if (!empty($media) && !is_wp_error($media)) {
-          $args = array(
-            'post_type' => 'attachment',
-            'posts_per_page' => -1,
-            'post_status' => 'any',
-            'post_parent' => $post_id
-          );
-
-          // reference new image to set as featured
-          $attachments = get_posts($args);
-
-          if (isset($attachments) && is_array($attachments)) {
-            foreach ($attachments as $attachment) {
-              // grab source of full size images (so no 300x150 nonsense in path)
-              $image = wp_get_attachment_image_src($attachment->ID, 'full');
-              // determine if in the $media image we created, the string of the URL exists
-              if (strpos($media, $image[0]) !== FALSE) {
-                // if so, we found our image. set it as thumbnail
-                set_post_thumbnail($post_id, $attachment->ID);
-                // only want one image
-                break;
-              }
-            }
-          }
+        if($post_id) {
+          $postarr['ID'] = $post_id;
+          $existing_posts_synced[] = $post_id;
         }
+
+        wp_insert_post($postarr);
       }
+
+      $thumbnail_id = $this->set_post_thumbnail($event, $post_id, $thumbnail_id);
 
       // Update wp meta
       foreach ($tribe_event as $key => $value) {
         update_post_meta($post_id, $key, $value);
       }
+
+      $count++;
     }
+
+    //delete posts with times not found in new import
+    foreach ($posts as $ID => $post) {
+      if(!in_array($ID, $existing_posts_synced)) {
+        wp_delete_post( $ID, false );
+      }
+    }
+
+    return $count;
+
   }
 
-  public function sync_events() {
-    $locations = $this->get_selected_location_ids();
-    $events = $this->get_events_for_locations($locations);
-
-    // We need more time!
-    set_time_limit(0);
-
-    foreach ($events as $event) {
-      $this->update_event($event);
+  private function map_event_to_post_id($event_date, $posts_meta) {
+    foreach ($posts_meta as $ID => $meta) {
+      $eventStartDate = $meta['_EventStartDate'][0];
+      $post_start_time = DateTime::createFromFormat('Y-m-d H:i:s', $eventStartDate, new DateTimeZone('Europe/Copenhagen'))->getTimestamp();
+      if($post_start_time == $event_date->start_datetime) {
+        return $ID;
+      }
     }
+
+    return false;
+  }
+
+  private function set_post_thumbnail($event, $post_id, $thumbnail_id = null) {
+    if($thumbnail_id) {
+      set_post_thumbnail($post_id, $thumbnail_id);
+
+      return $thumbnail_id;
+    }
+    // Load image
+    else if (!empty($event->promopic)) {
+
+      // Get the id of the image
+      $thumbnail_id = $this->get_image_post_id($event->promopic);
+
+      // If image not found then load it
+      if(!$thumbnail_id) {
+        $thumbnail_id = $this->load_external_image($event, $post_id);
+      }
+
+      // Set thumbnail
+      if($thumbnail_id) {
+        set_post_thumbnail($post_id, $thumbnail_id);
+
+        return $thumbnail_id;
+      }
+    }
+
+    return false;
+  }
+
+  private function load_external_image($event, $post_id) {
+    if (!empty($event->promopic)) {
+      // magic sideload image returns an HTML image, not an ID
+      $media = media_sideload_image($event->promopic, $post_id);
+
+      // therefore we must find it so we can set it as featured ID
+      if (!empty($media) && !is_wp_error($media)) {
+        $args = array(
+          'post_type' => 'attachment',
+          'posts_per_page' => -1,
+          'post_status' => 'any',
+          'post_parent' => $post_id
+        );
+
+        // reference new image to set as featured
+        $attachments = get_posts($args);
+
+        if (isset($attachments) && is_array($attachments)) {
+          foreach ($attachments as $attachment) {
+            // grab source of full size images (so no 300x150 nonsense in path)
+            $image = wp_get_attachment_image_src($attachment->ID, 'full');
+            // determine if in the $media image we created, the string of the URL exists
+            if (strpos($media, $image[0]) !== FALSE) {
+              // if so, we found our image.
+
+              // Add URL as metadata
+              update_post_meta($attachment->ID, 'AarhusEventURL', $event->promopic);
+
+              return $attachment->ID;
+            }
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  private function get_image_post_id($external_url) {
+    $args = array(
+      'post_type' => 'attachment',
+      'post_status' => 'inherit',
+      'meta_key'   => 'AarhusEventURL',
+      'meta_value' => $external_url
+    );
+    $query = new WP_Query( $args );
+
+    // The Loop
+    if ( $query->have_posts() ) {
+      while ( $query->have_posts() ) {
+        $query->the_post();
+        $post = get_post();
+
+        return $post->ID;
+      }
+    }
+
+    return false;
   }
 
   private function get_sync_user_id() {

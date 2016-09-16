@@ -19,10 +19,14 @@
 
   <?php submit_button(__('Sync events now', $this->plugin_name), 'primary', 'btnSync', TRUE); ?>
 
-  <ul>
-  <?php foreach ($events as $event) { ?>
-    <li><?php echo $event->name; ?> (<?php echo $event->place->place_name; ?>)</li>
+  <?php foreach ($place_events_array as $events) { ?>
+    <h4><?php echo $events[0]->place->place_name.':'; ?></h4>
+    <ul>
+      <?php foreach ($events as $event) { ?>
+        <li><?php echo $event->name; ?> - <?php echo count($event->event_dates) ?> <?php _e('Date(s)', $this->plugin_name); ?></li>
+      <?php } ?>
+    </ul>
+    <hr>
   <?php } ?>
-  </ul>
 </div>
 

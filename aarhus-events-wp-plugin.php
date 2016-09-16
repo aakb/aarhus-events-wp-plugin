@@ -26,36 +26,44 @@
  */
 
 // If this file is called directly, abort.
-if ( ! defined( 'WPINC' ) ) {
-	die;
+if (!defined('WPINC')) {
+  die;
 }
 
 /**
  * The code that runs during plugin activation.
  * This action is documented in includes/class-aarhus-events-wp-plugin-activator.php
  */
-function activate_aarhus_events_wp_plugin() {
-	require_once plugin_dir_path( __FILE__ ) . 'includes/class-aarhus-events-wp-plugin-activator.php';
-	Aarhus_Events_Wp_Plugin_Activator::activate();
+function activate_aarhus_events_wp_plugin()
+{
+  if ( ! Aarhus_Events_Wp_Plugin_Admin::dependency_is_met() ) {
+    deactivate_plugins( plugin_basename( __FILE__ ) );
+    wp_die(__('Aarhus Events requires the plugin "The Events Calendar" by Modern Tribe to be installed', 'aarhus-events-wp-plugin'));
+  }
+
+  // Plugin is active
+  require_once plugin_dir_path(__FILE__) . 'includes/class-aarhus-events-wp-plugin-activator.php';
+  Aarhus_Events_Wp_Plugin_Activator::activate();
 }
 
 /**
  * The code that runs during plugin deactivation.
  * This action is documented in includes/class-aarhus-events-wp-plugin-deactivator.php
  */
-function deactivate_aarhus_events_wp_plugin() {
-	require_once plugin_dir_path( __FILE__ ) . 'includes/class-aarhus-events-wp-plugin-deactivator.php';
-	Aarhus_Events_Wp_Plugin_Deactivator::deactivate();
+function deactivate_aarhus_events_wp_plugin()
+{
+  require_once plugin_dir_path(__FILE__) . 'includes/class-aarhus-events-wp-plugin-deactivator.php';
+  Aarhus_Events_Wp_Plugin_Deactivator::deactivate();
 }
 
-register_activation_hook( __FILE__, 'activate_aarhus_events_wp_plugin' );
-register_deactivation_hook( __FILE__, 'deactivate_aarhus_events_wp_plugin' );
+register_activation_hook(__FILE__, 'activate_aarhus_events_wp_plugin');
+register_deactivation_hook(__FILE__, 'deactivate_aarhus_events_wp_plugin');
 
 /**
  * The core plugin class that is used to define internationalization,
  * admin-specific hooks, and public-facing site hooks.
  */
-require plugin_dir_path( __FILE__ ) . 'includes/class-aarhus-events-wp-plugin.php';
+require plugin_dir_path(__FILE__) . 'includes/class-aarhus-events-wp-plugin.php';
 
 /**
  * Begins execution of the plugin.
@@ -66,10 +74,11 @@ require plugin_dir_path( __FILE__ ) . 'includes/class-aarhus-events-wp-plugin.ph
  *
  * @since    1.0.0
  */
-function run_aarhus_events_wp_plugin() {
+function run_aarhus_events_wp_plugin()
+{
 
-	$plugin = new Aarhus_Events_Wp_Plugin();
-	$plugin->run();
+  $plugin = new Aarhus_Events_Wp_Plugin();
+  $plugin->run();
 
 }
 

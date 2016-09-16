@@ -32,9 +32,9 @@ class Aarhus_Events_Wp_Plugin_Deactivator {
 	public static function deactivate() {
 
     // find out when the last event was scheduled
-    $timestamp = wp_next_scheduled ('aarhus_events_cron_sync');
+    $timestamp = wp_next_scheduled('aarhus_events_cron_event');
     // unschedule previous event if any
-    wp_unschedule_event ($timestamp, 'aarhus_events_cron_sync');
+    wp_unschedule_event($timestamp, 'aarhus_events_cron_event');
 
 	}
 
