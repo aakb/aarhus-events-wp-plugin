@@ -31,6 +31,10 @@ class Aarhus_Events_Wp_Plugin_Activator {
 	 */
 	public static function activate() {
 
+    if( !wp_next_scheduled( 'aarhus_events_cron_event' ) ) {
+      wp_schedule_event( time(), 'daily', 'aarhus_events_cron_event' );
+    }
+
 	}
 
 }
